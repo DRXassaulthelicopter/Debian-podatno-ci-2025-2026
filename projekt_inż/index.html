@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Debian Packages Dashboard</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      background: #f5f5f5;
+    }
+
+    .app {
+      max-width: 900px;
+      margin: 40px auto;
+      background: #ffffff;
+      border-radius: 16px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+      padding: 24px 28px 32px;
+    }
+
+    header {
+      border-bottom: 1px solid #e5e5e5;
+      padding-bottom: 12px;
+      margin-bottom: 20px;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 1.6rem;
+    }
+
+    header p {
+      margin: 4px 0 0;
+      color: #666;
+      font-size: 0.9rem;
+    }
+
+    .controls {
+      margin-bottom: 16px;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .controls label {
+      font-size: 0.9rem;
+      color: #444;
+    }
+
+    .controls input[type="text"] {
+      margin-left: 8px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid #d0d0d0;
+      min-width: 220px;
+      font-size: 0.9rem;
+    }
+
+    .status {
+      font-size: 0.85rem;
+      color: #777;
+      margin-top: 8px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 4px;
+    }
+
+    thead {
+      background: #fafafa;
+    }
+
+    th, td {
+      padding: 10px 8px;
+      text-align: left;
+      font-size: 0.9rem;
+    }
+
+    th {
+      border-bottom: 1px solid #e0e0e0;
+      color: #555;
+    }
+
+    tbody tr:nth-child(even) {
+      background: #fcfcfc;
+    }
+
+    tbody tr:hover {
+      background: #eef5ff;
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #eef;
+      font-size: 0.8rem;
+    }
+
+    .empty-message {
+      text-align: center;
+      padding: 18px 8px;
+      color: #888;
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>Debian Packages Dashboard</h1>
+      <p>Loaded from <code>packages.json</code></p>
+    </header>
+
+    <main>
+      <section class="controls">
+        <label>
+          Search:
+          <input id="searchInput" type="text" placeholder="Filter by package id or name..." />
+        </label>
+        <span class="status" id="statusMessage"></span>
+      </section>
+
+      <section class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 30%;">Package ID</th>
+              <th style="width: 70%;">Name</th>
+            </tr>
+          </thead>
+          <tbody id="packagesTableBody">
+            <!-- Rows injected by JavaScript -->
+          </tbody>
+        </table>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    let allPackages = [];
+
+    async function loadPackages() {
+      const statusEl = document.getElementById("statusMessage");
+      statusEl.textContent = "Loading packages...";
+
+      try {
+        const response = await fetch("packages.json");
+        if (!response.ok) {
+          throw new Error(`HTTP error ${response.status}`);
+        }
+
+        const json = await response.json();
+        // supports either { "packages": [...] } or just [...]
+        allPackages = Array.isArray(json) ? json : json.packages || [];
+
+        renderTable(allPackages);
+        statusEl.textContent = `Loaded ${allPackages.length} packages.`;
+      } catch (err) {
+        console.error(err);
+        statusEl.textContent = "Failed to load packages: " + err.message;
+      }
+    }
+
+    function renderTable(packages) {
+      const tbody = document.getElementById("packagesTableBody");
+      tbody.innerHTML = "";
+
+      if (!packages || packages.length === 0) {
+        const row = document.createElement("tr");
+        const cell = document.createElement("td");
+        cell.colSpan = 2;
+        cell.className = "empty-message";
+        cell.textContent = "No packages to display.";
+        row.appendChild(cell);
+        tbody.appendChild(row);
+        return;
+      }
+
+      for (const pkg of packages) {
+        const row = document.createElement("tr");
+
+        const idCell = document.createElement("td");
+        const pill = document.createElement("span");
+        pill.className = "pill";
+        pill.textContent = pkg.id || "(no id)";
+        idCell.appendChild(pill);
+
+        const nameCell = document.createElement("td");
+        nameCell.textContent = pkg.name || "(no name)";
+
+        row.appendChild(idCell);
+        row.appendChild(nameCell);
+        tbody.appendChild(row);
+      }
+    }
+
+    function setupSearch() {
+      const input = document.getElementById("searchInput");
+      input.addEventListener("input", () => {
+        const term = input.value.trim().toLowerCase();
+        if (!term) {
+          renderTable(allPackages);
+          return;
+        }
+
+        const filtered = allPackages.filter(pkg => {
+          const id = (pkg.id || "").toLowerCase();
+          const name = (pkg.name || "").toLowerCase();
+          return id.includes(term) || name.includes(term);
+        });
+
+        renderTable(filtered);
+      });
+    }
+
+    // Initialize
+    setupSearch();
+    loadPackages();
+  </script>
+</body>
+</html>
